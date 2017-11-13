@@ -45,12 +45,14 @@ performance_metric <- function(true_labels, pred_labels, vis=F){
   TPR = table[2,2]/(table[2,2]+table[2,1]) #True positive rate
   TNR = table[1,1]/(table[1,1]+table[1,2]) # True negative rate
   PPV = table[2,2]/(table[2,2]+table[1,2]) #positive predictive value
+  FDR = table[1,2]/(table[1,2]+table[2,2]) # False Discovery rate
   F1_score = (2*PPV*TPR)/(PPV+TPR)
   return_lst = list()
   return_lst$Accuracy = ACC
   return_lst$TPR = TPR
   return_lst$TNR = TNR
-  return_lst$PPV = PPV  
+  return_lst$PPV = PPV
+  return_lst$FDR = FDR  
   return_lst$F1_score = F1_score
   return(return_lst)
 }
@@ -110,8 +112,8 @@ plot(faceClust) # Inspect clustering attributes to define thresholds
 faceClust <- findClusters(faceClust, rho=4, delta=0.8)
 plotMDS(faceClust)
 # plotTSNE(faceClust)
-
 cur_data = cbind(faceClust$clusters,cur_data)
+
 true_labels = read.delim("c:/Users/hyli/Desktop/true_label_232.txt", sep = " ")
 
 true_label_idx = c()
