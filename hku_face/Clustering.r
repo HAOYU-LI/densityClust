@@ -37,7 +37,7 @@ performance_metric <- function(true_labels, pred_labels, vis=F){
   ## return a list of performance assessments.
   ##
   table = table(true_labels, pred_labels)[c(-1),]
-  if(dim(table)[1]==3){table = table[-1,]}
+  if(dim(table)[1]==3){table[3,2] = sum(table[1,]);table = table[-1,]}
   if(vis){
     print(table)
   }
@@ -47,20 +47,15 @@ performance_metric <- function(true_labels, pred_labels, vis=F){
   PPV = table[2,2]/(table[2,2]+table[1,2]) #positive predictive value
   FDR = table[1,2]/(table[1,2]+table[2,2]) # False Discovery rate
   F1_score = (2*PPV*TPR)/(PPV+TPR)
-  return_lst = list()
-  return_lst$Accuracy = ACC
-  return_lst$TPR = TPR
-  return_lst$TNR = TNR
-  return_lst$PPV = PPV
-  return_lst$FDR = FDR  
-  return_lst$F1_score = F1_score
+  return_lst = list(ACC,TPR,TNR,PPV,FDR,1-FDR,F1_score)
+  names(return_lst) = c("Accuracy","TPR","TNR","PPV","FDR","purity","F1_score")  
   return(return_lst)
 }
 
 
 
 ##import Data##
-data_1 = read.csv("C:/Users/hyli/Desktop/pair_name_feature/pair_id_2.csv",header = F)
+data_1 = read.csv("./pair_id_2.csv",header = F)
 ####################Add names to each data point####################
 ppl_names = data_1[,1]
 names_list = c()
@@ -102,47 +97,26 @@ for (i in 1:length(uniq_names))
 
 ###########################Run clustering###########################
 
-
+library(densityClust)
+uniq_names = unique(names_list)
 cur_data = data_1[data_1$names_list==uniq_names[232],]
 
 faceDist <- dist(cur_data[,-c(1:5)])
 faceClust <- densityClust(faceDist, gaussian=TRUE)
 plot(faceClust) # Inspect clustering attributes to define thresholds
 
-faceClust <- findClusters(faceClust, rho=4, delta=0.8)
+faceClust <- findClusters(faceClust)
 plotMDS(faceClust)
 # plotTSNE(faceClust)
 cur_data = cbind(faceClust$clusters,cur_data)
+# true_labels = read.delim("./true_label_232.txt", sep = " ")
 
-true_labels = read.delim("c:/Users/hyli/Desktop/true_label_232.txt", sep = " ")
-
-true_label_idx = c()
-for(i in 1:dim(true_labels)[1]){
-  true_label_idx = c(true_label_idx,sub("_face.*","",sub("[a-zA-Z]*_[a-zA-Z]*/","",true_labels[i,1])))
-}
-
-true_label_ordered = c()
-for(i in 1:dim(cur_data)[1]){
-  cur_index = sub("_face.*","",sub("[a-zA-Z]*_[a-zA-Z]*/","",cur_data[i,"V1"]))
-  
-  if(cur_index %in% true_label_idx){
-    true_label = true_labels[which(true_label_idx %in% c(cur_index)),2]
-  }else{
-    true_label = -1
-  }
-  true_label_ordered = c(true_label_ordered,true_label)
-}
-cur_data = cbind(true_label_ordered,cur_data)
+lst = readTruePredLabels(cur_data = cur_data,pathToFile = "./true_label_232.txt")
+metric_table = performance_metric(true_labels = lst$true_label,pred_labels = lst$pred_label,vis = T)
+metric_table$purity
 
 
-pred_label = cur_data[,2]
-pred_label[pred_label!=1] = 0
-table = table(true_label_ordered, pred_label) 
 
-
-ACC = (table[2,1]+table[3,2])/(table[2,2]+table[3,1]+table[2,1]+table[3,2])
-TPR = table[3,2]/(table[3,2]+table[3,1])
-TNR = table[2,1]/(table[2,1]+table[2,2])
 
 
 
