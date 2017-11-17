@@ -2,20 +2,31 @@ install.packages("devtools")
 devtools::install_github("HAOYU-LI/densityClust")
 library(densityClust)
 
-readTruePredLabels <- function(cur_data,pathToFile,sep = " "){
+readTruePredLabels <- function(cur_data,pathToTruelab,sep = " ", rhoThre = 5, deltaThre=1, vis=F){
   
   # This function takes current dataset and true label csv file path, 
   # and return a list which contains true_label list and pred_label list.
   # Some true label = -1 mean that the corresponding image cannot be judged by human
+  library(densityClust)
+  faceDist <- dist(cur_data[,-c(1:5)])
+  faceClust <- densityClust(faceDist, gaussian=TRUE)
+  if(vis){plot(faceClust)} # Inspect clustering attributes to define thresholds
   
-  true_labels = read.delim(pathToFile, sep = sep)
+  faceClust <- findClusters(faceClust,rho = rhoThre,delta = deltaThre)
+  
+  if(vis){plotMDS(faceClust)}
+  cur_data = cbind(faceClust$rho,faceClust$delta,cur_data)
+  
+  true_labels = read.delim(pathToTruelab, sep = sep)
   true_label_idx = c()
-  for(i in 1:dim(true_labels)[1]){
+  for(i in 1:dim(true_labels)[1])
+  {
     true_label_idx = c(true_label_idx,sub("_face.*","",sub("[a-zA-Z]*_[a-zA-Z]*/","",true_labels[i,1])))
   }
   
   true_label_ordered = c()
-  for(i in 1:dim(cur_data)[1]){
+  for(i in 1:dim(cur_data)[1])
+  {
     cur_index = sub("_face.*","",sub("[a-zA-Z]*_[a-zA-Z]*/","",cur_data[i,"V1"]))
     if(cur_index %in% true_label_idx){
       true_label = true_labels[which(true_label_idx %in% c(cur_index)),2]
@@ -25,8 +36,17 @@ readTruePredLabels <- function(cur_data,pathToFile,sep = " "){
     true_label_ordered = c(true_label_ordered,true_label)
   }
   return_lst = list()
-  pred_label = cur_data[,"faceClust$clusters"]
-  pred_label[pred_label!=1] = 0
+  pred_label = c()
+  for(index in 1:dim(cur_data)[1])
+  {
+    if(cur_data$`faceClust$rho`[index] >= rhoThre && cur_data$`faceClust$delta`[index] <= deltaThre )
+    {
+      pred_label <- c(pred_label,1)
+    }else{
+      pred_label <- c(pred_label,0)
+    }
+  }
+  # print(cur_data)
   return_lst$pred_label = pred_label
   return_lst$true_label = true_label_ordered
   return (return_lst)
@@ -101,19 +121,14 @@ library(densityClust)
 uniq_names = unique(names_list)
 cur_data = data_1[data_1$names_list==uniq_names[232],]
 
-faceDist <- dist(cur_data[,-c(1:5)])
-faceClust <- densityClust(faceDist, gaussian=TRUE)
-plot(faceClust) # Inspect clustering attributes to define thresholds
 
-faceClust <- findClusters(faceClust)
-plotMDS(faceClust)
-# plotTSNE(faceClust)
-cur_data = cbind(faceClust$clusters,cur_data)
-# true_labels = read.delim("./true_label_232.txt", sep = " ")
+for(thre in c(2,2.2,2.4,2.5,2.7,2.9,3,3.3))
+{
+  lst = readTruePredLabels(cur_data = cur_data,pathToTruelab = "./true_label_232.txt",rhoThre = thre,deltaThre = 1.4)
+  metric_table = performance_metric(true_labels = lst$true_label,pred_labels = lst$pred_label,vis = F)
+  cat("density threshold = ",thre,"; with final purity = ",metric_table$purity,".\n")
+}
 
-lst = readTruePredLabels(cur_data = cur_data,pathToFile = "./true_label_232.txt")
-metric_table = performance_metric(true_labels = lst$true_label,pred_labels = lst$pred_label,vis = T)
-metric_table$purity
 
 
 
